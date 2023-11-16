@@ -5,7 +5,7 @@ Stack<int> nstack;
 template<class T>
 fn initstack(Stack<T>* s, size_t capacity = 100) -> void
 {
-	s->head = (T*) malloc(capacity * sizeof(int));
+	s->head = (T*) malloc(capacity * sizeof(T));
 	if(s->head) s->capacity = capacity;
 }
 
@@ -16,16 +16,16 @@ fn freestack(Stack<T>* s) -> void
 }
 
 template<class T>
-fn push(Stack<T>* s, int n) -> void
+fn push(Stack<T>* s, T n) -> void
 {
 	if(s->capacity <= s->size) {
-		s->head = (T*) realloc(s->head, (s->capacity *= 2) * sizeof(int));
+		s->head = (T*) realloc(s->head, (s->capacity *= 2) * sizeof(T));
 	}
 	*(s->head + s->size++) = n;
 }
 
 template<class T>
-fn pop(Stack<T>* s) -> int
+fn pop(Stack<T>* s) -> T
 {
 	return *(s->head + --s->size);
 }
