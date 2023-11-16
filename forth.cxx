@@ -6,7 +6,7 @@ template<class T>
 fn initstack(Stack<T>* s, size_t capacity = 100) -> void
 {
 	s->head = (T*) malloc(capacity * sizeof(T));
-	if(s->head) s->capacity = capacity;
+	if(s->head) then s->capacity = capacity;
 }
 
 template<class T>

@@ -6,6 +6,7 @@
 
 #define fn   auto
 #define let  auto
+#define then
 #define loop for(;;)
 
 template<class T>
