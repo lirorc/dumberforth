@@ -27,7 +27,8 @@ fn push(Stack<T>* s, T n) -> void
 template<class T>
 fn pop(Stack<T>* s) -> T
 {
-	return *(s->head + --s->size);
+	if(s->size > 0) then return *(s->head + --s->size);
+	return -1;
 }
 
 fn evalnum(char* buf) -> void
@@ -41,6 +42,9 @@ fn evalword(char* buf) -> void
 {
 	char word[8] {0};
 	sscanf(buf, "%7s", word);
+
+	if(!strcmp(word, "p")) then printf("%d\n", pop(&nstack));
+	else if(!strcmp(word, "q")) then exit(0);
 }
 
 fn eval(char* buf, size_t size) -> void
