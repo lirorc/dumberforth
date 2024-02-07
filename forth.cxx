@@ -40,7 +40,7 @@ static uint32_t* dp = dict;
 static constexpr
 fn hashdjb(char* str) -> uint32_t
 { /* djb2 */
-	uint32_t hash = 5381;
+	let hash = 5381ul;
 	let c = 0;
 	while(c = *str++)
 		hash = ((hash << 5) + hash) + c;
@@ -50,7 +50,7 @@ fn hashdjb(char* str) -> uint32_t
 static constexpr
 fn hash(const char* str) -> uint32_t
 { /* murmur */
-	uint32_t hash = 3323198485ul;
+	let hash = 3323198485ul;
 	for(; *str; ++str)
 	{
 		hash ^= *str;
@@ -158,7 +158,7 @@ fn readnum() -> void
 fn readword() -> void
 {
 	memset(word, 0, 8);
-	for(int i = 0; i < 7; i++)
+	for(let i = 0; i < 8; i++)
 	{
 		if(!isgraph(*bp)) break;
 		word[i] = *bp++;
