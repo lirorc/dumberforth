@@ -30,8 +30,14 @@ static int stack[11]; // number stack
 static int sp = 0; // stack pointer
 
 /* dictionary */
+struct dictionary {
+	uint32_t name;
+	uint32_t place;
+};
+static dictionary words[100] = {0};
+static uint32_t wp = 0;
 static uint32_t dict[400] = {0};
-static uint32_t* dp = dict;
+static uint32_t dp = 0;
 
 /*-------- CODE --------*/
 
@@ -51,8 +57,7 @@ static constexpr
 fn hash(const char* str) -> uint32_t
 { /* murmur */
 	let hash = 3323198485ul;
-	for(; *str; ++str)
-	{
+	for(; *str; ++str) {
 		hash ^= *str;
 		hash *= 0x5bd1e995;
 		hash ^= hash >> 15;
@@ -71,6 +76,7 @@ fn powten(int n) -> int
 
 /*-- builtins --*/
 
+/*- stack -*/
 static inline
 fn push(int n) -> void
 {
@@ -87,7 +93,6 @@ fn peek() -> int
 {
 	return stack[sp];
 }
-
 static inline
 fn swap() -> void
 {
@@ -96,6 +101,7 @@ fn swap() -> void
 	stack[sp - 1] = temp;
 }
 
+/*- arithmetic -*/
 static inline
 fn add() -> void
 {
@@ -121,13 +127,45 @@ fn div() -> void
 	sp--;
 }
 
+/*- colon -*/
+fn readnum() -> void;
+fn readword() -> void;
+
+static inline
+fn colon() -> void
+{
+	readword();
+	words[wp++] = { hash(word), dp };
+
+	while(bp < buf + 40) {
+		if(isspace(*bp)) {
+			bp++;
+			continue;
+		}
+		readword();
+		dict[dp++] = hash(word);
+		if(word[0] == ';') then break;
+	}
+}
+static inline
+fn findword(uint32_t word) -> uint32_t
+{
+	for(let i = 0; i < wp; i++) {
+		if(words[i].name == word)
+			return words[i].place;
+	}
+	puts("undefined word"), exit(-5);
+}
+
+/*- graphics -*/
+
+/*- misc -*/
 static inline
 fn list() -> void
 {
 	if (sp <= 0) then return;
 
-	for(let i = 1; i < sp; i++)
-	{
+	for(let i = 1; i < sp; i++) {
 		printf("%d ", stack[i]);
 	}
 	printf("%d\n", stack[sp]);
@@ -139,16 +177,14 @@ fn readnum() -> void
 {
 	char n[8] = {0};
 	let i = 0;
-	for(; i < 8; i++)
-	{
+	for(; i < 8; i++) {
 		if(!isdigit(*bp)) break;
 		n[i] = *bp++;
 	}
 	i--;
 
 	let num = 0;
-	for(let j = 0; i >= 0; i--, j++)
-	{
+	for(let j = 0; i >= 0; i--, j++) {
 		num += powten(i) * (n[j] - '0');
 	}
 
@@ -158,19 +194,19 @@ fn readnum() -> void
 fn readword() -> void
 {
 	memset(word, 0, 8);
-	for(let i = 0; i < 8; i++)
-	{
+	for(let i = 0; i < 8; i++) {
 		if(!isgraph(*bp)) break;
 		word[i] = *bp++;
 	}
 	while(isgraph(*bp++));
 }
 
-/*-- eval --*/
+/*-- evaluator --*/
 
-fn evalword() -> void
+fn evalcol(uint32_t cword) -> void;
+
+fn evalhash(uint32_t w) -> void
 {
-	let w = hash(word);
 	switch(w)
 	{
 		case(hash("dup")):
@@ -205,28 +241,47 @@ fn evalword() -> void
 			div();
 			break;
 		case(hash(":")):
+			colon();
+			break;
+		case(hash(";")):
 			break;
 		case(hash(".s")):
 			list();
+			break;
+		case(hash("window")):
 			break;
 		case(hash("exit")):
 			exit(0);
 			break;
 		default:
+			evalcol(w);
 			break;
 	}
+}
+
+fn evalcol(uint32_t cword) -> void
+{
+	let p = findword(cword);
+	while(dict[p] != hash(";")) {
+		evalhash(dict[p++]);
+	}
+}
+
+fn evalword() -> void
+{
+	let w = hash(word);
+	evalhash(w);
 }
 
 fn eval() -> void
 {
 	bp = buf;
-	while(*bp != 0 && bp < buf + 40)
-	{
-		if(isspace(*bp)){
+	while(*bp != 0 && bp < buf + 40) {
+		if(isspace(*bp)) {
 			bp++;
 			continue;
 		} 
-		if(isdigit(*bp)){
+		if(isdigit(*bp)) {
 			readnum();
 			continue;
 		}
@@ -239,8 +294,7 @@ fn eval() -> void
 
 fn main() -> int
 {
-	loop
-	{
+	loop {
 		/* prompt */
 		write(1, "→ ", 4);
 
