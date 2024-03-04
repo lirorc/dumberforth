@@ -25,8 +25,11 @@ static char* bp;
 /* last parsed word */
 static char word[8]; // most recent read word
 
+/* last parsed number */
+static uint32_t number; // most recent read word
+
 /* number stack */
-static int stack[11]; // number stack
+static uint32_t stack[11]; // number stack
 static int sp = 0; // stack pointer
 
 /* dictionary */
@@ -141,6 +144,11 @@ fn colon() -> void
 		if(isspace(*bp)) {
 			bp++;
 			continue;
+		} else if(isdigit(*bp)) {
+			readnum();
+			dict[dp++] = hash("number");
+			dict[dp++] = number;
+			continue;
 		}
 		readword();
 		dict[dp++] = hash(word);
@@ -188,7 +196,7 @@ fn readnum() -> void
 		num += powten(i) * (n[j] - '0');
 	}
 
-	push(num);
+	number = num;
 }
 
 fn readword() -> void
@@ -205,57 +213,57 @@ fn readword() -> void
 
 fn evalcol(uint32_t cword) -> void;
 
-fn evalhash(uint32_t w) -> void
+fn evalword(uint32_t w) -> void
 {
 	switch(w)
 	{
-		case(hash("dup")):
-			CU(1);
-			push(peek());
-			break;
-		case(hash("swap")):
-			CU(2);
-			swap();
-			break;
-		case(hash("rot")):
-			CU(3);
-			break;
-		case(hash(".")):
-			CU(1);
-			printf("%d\n", pop());
-			break;
-		case(hash("+")):
-			CU(2);
-			add();
-			break;
-		case(hash("-")):
-			CU(2);
-			sub();
-			break;
-		case(hash("*")):
-			CU(2);
-			mul();
-			break;
-		case(hash("/")):
-			CU(2);
-			div();
-			break;
-		case(hash(":")):
-			colon();
-			break;
-		case(hash(";")):
-			break;
-		case(hash(".s")):
-			list();
-			break;
-		case(hash("window")):
-			break;
-		case(hash("exit")):
-			exit(0);
-			break;
-		default:
-			evalcol(w);
-			break;
+	case(hash("dup")):
+		CU(1);
+		push(peek());
+		break;
+	case(hash("swap")):
+		CU(2);
+		swap();
+		break;
+	case(hash("rot")):
+		CU(3);
+		break;
+	case(hash(".")):
+		CU(1);
+		printf("%d\n", pop());
+		break;
+	case(hash("+")):
+		CU(2);
+		add();
+		break;
+	case(hash("-")):
+		CU(2);
+		sub();
+		break;
+	case(hash("*")):
+		CU(2);
+		mul();
+		break;
+	case(hash("/")):
+		CU(2);
+		div();
+		break;
+	case(hash(":")):
+		colon();
+		break;
+	case(hash(";")):
+		break;
+	case(hash(".s")):
+		list();
+		break;
+	case(hash("window")):
+		break;
+	case(hash("exit")):
+		exit(0);
+		break;
+	default:
+		evalcol(w);
+		break;
 	}
 }
 
@@ -263,14 +271,13 @@ fn evalcol(uint32_t cword) -> void
 {
 	let p = findword(cword);
 	while(dict[p] != hash(";")) {
-		evalhash(dict[p++]);
+		if(dict[p] == hash("number")) {
+			push(dict[++p]);
+			p++;
+			continue;
+		}
+		evalword(dict[p++]);
 	}
-}
-
-fn evalword() -> void
-{
-	let w = hash(word);
-	evalhash(w);
 }
 
 fn eval() -> void
@@ -283,10 +290,11 @@ fn eval() -> void
 		} 
 		if(isdigit(*bp)) {
 			readnum();
+			push(number);
 			continue;
 		}
 		readword();
-		evalword();
+		evalword(hash(word));
 	}
 }
 
