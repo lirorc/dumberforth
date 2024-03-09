@@ -19,7 +19,7 @@
 /*-------- DATA --------*/
 
 /* most recently read chars */
-static char buf[40]; // most recent read input
+static char buf[80]; // most recent read input
 static char* bp;
 
 /* last parsed word */
@@ -27,6 +27,9 @@ static char word[8]; // most recent read word
 
 /* last parsed number */
 static uint32_t number; // most recent read word
+
+/* if state */
+static int ifstate = 0;
 
 /* number stack */
 static uint32_t stack[11]; // number stack
@@ -103,6 +106,14 @@ fn swap() -> void
 	stack[sp] = stack[sp - 1];
 	stack[sp - 1] = temp;
 }
+static inline
+fn rot() -> void
+{
+	let temp = stack[sp];
+	stack[sp] = stack[sp - 1];
+	stack[sp - 1] = stack[sp - 2];
+	stack[sp - 2] = temp;
+}
 
 /*- arithmetic -*/
 static inline
@@ -130,17 +141,49 @@ fn div() -> void
 	sp--;
 }
 
-/*- colon -*/
-fn readnum() -> void;
-fn readword() -> void;
-
+/*- logic -*/
 static inline
+fn greater() -> void
+{
+	let first = stack[sp - 1];
+	let second = stack[sp];
+	sp--;
+	stack[sp] = first > second ? -1 : 0;
+}
+static inline
+fn less() -> void
+{
+	let first = stack[sp - 1];
+	let second = stack[sp];
+	sp--;
+	stack[sp] = first < second ? -1 : 0;
+}
+static inline
+fn equal() -> void
+{
+	let first = stack[sp - 1];
+	let second = stack[sp];
+	sp--;
+	stack[sp] = first == second ? -1 : 0;
+}
+
+/*- conditionals -*/
+static inline
+fn ifword() -> void
+{
+	ifstate = stack[sp--] ? 1 : 2;
+}
+
+/*- colon -*/
+fn readword() -> void;
+fn readnum() -> void;
+
 fn colon() -> void
 {
 	readword();
 	words[wp++] = { hash(word), dp };
 
-	while(bp < buf + 40) {
+	while(bp < buf + 80) {
 		if(isspace(*bp)) {
 			bp++;
 			continue;
@@ -154,15 +197,6 @@ fn colon() -> void
 		dict[dp++] = hash(word);
 		if(word[0] == ';') then break;
 	}
-}
-static inline
-fn findword(uint32_t word) -> uint32_t
-{
-	for(let i = 0; i < wp; i++) {
-		if(words[i].name == word)
-			return words[i].place;
-	}
-	puts("undefined word"), exit(-5);
 }
 
 /*- graphics -*/
@@ -186,15 +220,14 @@ fn readnum() -> void
 	char n[8] = {0};
 	let i = 0;
 	for(; i < 8; i++) {
-		if(!isdigit(*bp)) break;
+		if(!isdigit(*bp)) then break;
 		n[i] = *bp++;
 	}
 	i--;
 
 	let num = 0;
-	for(let j = 0; i >= 0; i--, j++) {
+	for(let j = 0; i >= 0; i--, j++)
 		num += powten(i) * (n[j] - '0');
-	}
 
 	number = num;
 }
@@ -215,6 +248,28 @@ fn evalcol(uint32_t cword) -> void;
 
 fn evalword(uint32_t w) -> void
 {
+	switch(ifstate)
+	{
+	case 0: // no if
+		break;
+	case 1: // if true
+		if(w == hash("else")) {
+			ifstate = 3;
+			return;
+		}
+		break;
+	case 2: // if false
+		if(w == hash("else") || w == hash("then")) {
+			ifstate = 0;
+		}
+		return;
+	default:
+		if(w == hash("then")) {
+			ifstate = 0;
+		}
+		return;
+	}
+
 	switch(w)
 	{
 	case(hash("dup")):
@@ -227,6 +282,7 @@ fn evalword(uint32_t w) -> void
 		break;
 	case(hash("rot")):
 		CU(3);
+		rot();
 		break;
 	case(hash(".")):
 		CU(1);
@@ -248,10 +304,30 @@ fn evalword(uint32_t w) -> void
 		CU(2);
 		div();
 		break;
+	case(hash(">")):
+		CU(2);
+		greater();
+		break;
+	case(hash("<")):
+		CU(2);
+		less();
+		break;
+	case(hash("=")):
+		CU(2);
+		equal();
+		break;
 	case(hash(":")):
 		colon();
 		break;
 	case(hash(";")):
+		break;
+	case(hash("if")):
+		CU(1);
+		ifword();
+		break;
+	case(hash("else")):
+		break;
+	case(hash("then")):
 		break;
 	case(hash(".s")):
 		list();
@@ -267,6 +343,14 @@ fn evalword(uint32_t w) -> void
 	}
 }
 
+static inline
+fn findword(uint32_t word) -> uint32_t
+{
+	for(let i = 0; i < wp; i++)
+		if(words[i].name == word) return words[i].place;
+
+	puts("undefined word"), exit(-5);
+}
 fn evalcol(uint32_t cword) -> void
 {
 	let p = findword(cword);
@@ -283,7 +367,7 @@ fn evalcol(uint32_t cword) -> void
 fn eval() -> void
 {
 	bp = buf;
-	while(*bp != 0 && bp < buf + 40) {
+	while(*bp != 0 && bp < buf + 80) {
 		if(isspace(*bp)) {
 			bp++;
 			continue;
@@ -307,8 +391,8 @@ fn main() -> int
 		write(1, "→ ", 4);
 
 		/* read */
-		memset(buf, 0, 40);
-		read(0, buf, 39);
+		memset(buf, 0, 80);
+		read(0, buf, 79);
 
 		/* eval */
 		eval();
