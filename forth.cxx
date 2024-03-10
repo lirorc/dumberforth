@@ -364,18 +364,16 @@ fn eval() -> void
 {
 	bp = buf;
 	while(*bp != 0 && bp < buf + 80) {
-		if(isspace(*bp)) {
+		if(isspace(*bp)) 
 			bp++;
-			continue;
-		} 
-		if(isdigit(*bp)) {
+		else if(isdigit(*bp)) {
 			readnum();
 			if(ifdepth == 0 || ifstate & (1 << (ifdepth - 1)))
 				push(number);
-			continue;
+		} else {
+			readword();
+			evalword(hash(word));
 		}
-		readword();
-		evalword(hash(word));
 	}
 }
 
