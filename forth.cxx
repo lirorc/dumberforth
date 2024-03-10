@@ -29,7 +29,8 @@ static char word[8]; // most recent read word
 static uint32_t number; // most recent read word
 
 /* if state */
-static int ifstate = 0;
+static int ifdepth = 0;
+static uint64_t ifstate = 0;
 
 /* number stack */
 static uint32_t stack[11]; // number stack
@@ -147,31 +148,32 @@ fn greater() -> void
 {
 	let first = stack[sp - 1];
 	let second = stack[sp];
-	sp--;
-	stack[sp] = first > second ? -1 : 0;
+	stack[--sp] = (first > second);
 }
 static inline
 fn less() -> void
 {
 	let first = stack[sp - 1];
 	let second = stack[sp];
-	sp--;
-	stack[sp] = first < second ? -1 : 0;
+	stack[--sp] = (first < second);
 }
 static inline
 fn equal() -> void
 {
 	let first = stack[sp - 1];
 	let second = stack[sp];
-	sp--;
-	stack[sp] = first == second ? -1 : 0;
+	stack[--sp] = (first == second);
 }
 
 /*- conditionals -*/
 static inline
 fn ifword() -> void
 {
-	ifstate = stack[sp--] ? 1 : 2;
+	if(ifdepth >= 64)
+		puts("if depth error"), exit(6);
+
+	ifstate ^= (stack[sp--] ? 1 : 0) << ifdepth;
+	ifdepth++;
 }
 
 /*- colon -*/
@@ -207,10 +209,11 @@ fn list() -> void
 {
 	if (sp <= 0) then return;
 
+	printf("<");
 	for(let i = 1; i < sp; i++) {
-		printf("%d ", stack[i]);
+		printf("%d,", stack[i]);
 	}
-	printf("%d\n", stack[sp]);
+	printf("%d>\n", stack[sp]);
 }
 
 /*-- parser --*/
@@ -248,26 +251,19 @@ fn evalcol(uint32_t cword) -> void;
 
 fn evalword(uint32_t w) -> void
 {
-	switch(ifstate)
-	{
-	case 0: // no if
-		break;
-	case 1: // if true
-		if(w == hash("else")) {
-			ifstate = 3;
-			return;
-		}
-		break;
-	case 2: // if false
-		if(w == hash("else") || w == hash("then")) {
-			ifstate = 0;
-		}
-		return;
-	default:
+	if(ifdepth) {
+		let flagbit = 1 << (ifdepth - 1);
+		let executable = ifstate & flagbit;
+
 		if(w == hash("then")) {
-			ifstate = 0;
-		}
-		return;
+			ifstate &= flagbit - 1; // dirty?
+			ifdepth--;
+			return;
+		} else if(not executable) {
+			if(w == hash("else")) then ifstate ^= flagbit;
+			return;
+		} else if(executable && w == hash("else"))
+			ifstate ^= flagbit;
 	}
 
 	switch(w)
@@ -356,8 +352,8 @@ fn evalcol(uint32_t cword) -> void
 	let p = findword(cword);
 	while(dict[p] != hash(";")) {
 		if(dict[p] == hash("number")) {
-			push(dict[++p]);
 			p++;
+			push(dict[p++]);
 			continue;
 		}
 		evalword(dict[p++]);
@@ -374,7 +370,8 @@ fn eval() -> void
 		} 
 		if(isdigit(*bp)) {
 			readnum();
-			push(number);
+			if(ifdepth == 0 || ifstate & (1 << (ifdepth - 1)))
+				push(number);
 			continue;
 		}
 		readword();
