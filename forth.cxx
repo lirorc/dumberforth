@@ -19,21 +19,21 @@
 /*-------- DATA --------*/
 
 /* most recently read chars */
-static char buf[80]; // most recent read input
+static char buf[80];
 static char* bp;
 
 /* last parsed word */
-static char word[8]; // most recent read word
+static char word[8];
 
 /* last parsed number */
-static uint32_t number; // most recent read word
+static uint32_t number;
 
 /* if state */
 static int ifdepth = 0;
 static uint64_t ifstate = 0;
 
 /* number stack */
-static uint32_t stack[11]; // number stack
+static uint32_t stack[11];
 static int sp = 0; // stack pointer
 
 /* dictionary */
@@ -51,17 +51,7 @@ static uint32_t dp = 0;
 /*-- auxiliary --*/
 
 static constexpr
-fn hashdjb(char* str) -> uint32_t
-{ /* djb2 */
-	let hash = 5381ul;
-	let c = 0;
-	while(c = *str++)
-		hash = ((hash << 5) + hash) + c;
-	return hash;
-}
-
-static constexpr
-fn hash(const char* str) -> uint32_t
+fn hash (const char* str) -> uint32_t
 { /* murmur */
 	let hash = 3323198485ul;
 	for(; *str; ++str) {
@@ -73,7 +63,7 @@ fn hash(const char* str) -> uint32_t
 }
 
 static inline
-fn powten(int n) -> int
+fn powten (int n) -> int
 {
 	let x = 1;
 	for(let i = 0; i < n; i++)
@@ -81,62 +71,76 @@ fn powten(int n) -> int
 	return x;
 }
 
+static inline
+fn findword (uint32_t word) -> uint32_t
+{
+	for(let i = 0u; i < wp; i++)
+		if(words[i].name == word) return words[i].place;
+
+	puts("undefined word"), exit(-5);
+}
+
 /*-- builtins --*/
 
 /*- stack -*/
 static inline
-fn push(int n) -> void
+fn push (int n) -> void
 {
 	CA;
 	stack[++sp] = n;
 }
 static inline
-fn pop() -> int
+fn pop (void) -> int
 {
 	return stack[sp--];
 }
 static inline
-fn peek() -> int
+fn peek (void) -> int
 {
 	return stack[sp];
 }
 static inline
-fn swap() -> void
+fn swap (void) -> void
 {
 	let temp = stack[sp];
 	stack[sp] = stack[sp - 1];
 	stack[sp - 1] = temp;
 }
 static inline
-fn rot() -> void
+fn rot (void) -> void
 {
 	let temp = stack[sp];
 	stack[sp] = stack[sp - 1];
 	stack[sp - 1] = stack[sp - 2];
 	stack[sp - 2] = temp;
 }
+static inline
+fn drop (void) -> void
+{
+	sp--;
+}
 
 /*- arithmetic -*/
 static inline
-fn add() -> void
+fn add (void) -> void
 {
 	stack[sp - 1] += stack[sp];
 	sp--;
 }
 static inline
-fn sub() -> void
+fn sub (void) -> void
 {
 	stack[sp - 1] -= stack[sp];
 	sp--;
 }
 static inline
-fn mul() -> void
+fn mul (void) -> void
 {
 	stack[sp - 1] *= stack[sp];
 	sp--;
 }
 static inline
-fn div() -> void
+fn div (void) -> void
 {
 	stack[sp - 1] /= stack[sp];
 	sp--;
@@ -144,21 +148,21 @@ fn div() -> void
 
 /*- logic -*/
 static inline
-fn greater() -> void
+fn greater (void) -> void
 {
 	let first = stack[sp - 1];
 	let second = stack[sp];
 	stack[--sp] = (first > second);
 }
 static inline
-fn less() -> void
+fn less (void) -> void
 {
 	let first = stack[sp - 1];
 	let second = stack[sp];
 	stack[--sp] = (first < second);
 }
 static inline
-fn equal() -> void
+fn equal (void) -> void
 {
 	let first = stack[sp - 1];
 	let second = stack[sp];
@@ -167,20 +171,20 @@ fn equal() -> void
 
 /*- conditionals -*/
 static inline
-fn ifword() -> void
+fn ifword (void) -> void
 {
 	if(ifdepth >= 64)
-		puts("if depth error"), exit(6);
+		puts("if depth reached"), exit(6);
 
 	ifstate ^= (stack[sp--] ? 1 : 0) << ifdepth;
 	ifdepth++;
 }
 
 /*- colon -*/
-fn readword() -> void;
-fn readnum() -> void;
+fn readword (void) -> void;
+fn readnum  (void) -> void;
 
-fn colon() -> void
+fn colon (void) -> void
 {
 	readword();
 	words[wp++] = { hash(word), dp };
@@ -205,25 +209,40 @@ fn colon() -> void
 
 /*- misc -*/
 static inline
-fn list() -> void
+fn list (void) -> void
 {
 	if (sp <= 0) then return;
 
 	printf("<");
-	for(let i = 1; i < sp; i++) {
+	for(let i = 1; i < sp; i++)
 		printf("%d,", stack[i]);
-	}
+
 	printf("%d>\n", stack[sp]);
+}
+
+static inline
+fn quote (void) -> void
+{
+	readword();
+	push(hash(word));
+}
+
+fn evalword (uint32_t) -> void;
+
+static inline
+fn unquote (void) -> void
+{
+	evalword(pop());
 }
 
 /*-- parser --*/
 
-fn readnum() -> void
+fn readnum (void) -> void
 {
-	char n[8] = {0};
+	char n[10] = {0};
 	let i = 0;
-	for(; i < 8; i++) {
-		if(!isdigit(*bp)) then break;
+	for(; i < 10; i++) {
+		if(!isdigit(*bp)) break;
 		n[i] = *bp++;
 	}
 	i--;
@@ -235,7 +254,7 @@ fn readnum() -> void
 	number = num;
 }
 
-fn readword() -> void
+fn readword (void) -> void
 {
 	memset(word, 0, 8);
 	for(let i = 0; i < 8; i++) {
@@ -247,16 +266,16 @@ fn readword() -> void
 
 /*-- evaluator --*/
 
-fn evalcol(uint32_t cword) -> void;
+fn evalcol (uint32_t cword) -> void;
 
-fn evalword(uint32_t w) -> void
+fn evalword (uint32_t w) -> void
 {
 	if(ifdepth) {
 		let flagbit = 1 << (ifdepth - 1);
 		let executable = ifstate & flagbit;
 
 		if(w == hash("then")) {
-			ifstate &= flagbit - 1; // dirty?
+			ifstate &= flagbit - 1;
 			ifdepth--;
 			return;
 		} else if(not executable) {
@@ -279,6 +298,10 @@ fn evalword(uint32_t w) -> void
 	case(hash("rot")):
 		CU(3);
 		rot();
+		break;
+	case(hash("drop")):
+		CU(1);
+		drop();
 		break;
 	case(hash(".")):
 		CU(1);
@@ -325,6 +348,12 @@ fn evalword(uint32_t w) -> void
 		break;
 	case(hash("then")):
 		break;
+	case(hash("'")):
+		quote();
+		break;
+	case(hash("eval")):
+		unquote();
+		break;
 	case(hash(".s")):
 		list();
 		break;
@@ -339,15 +368,7 @@ fn evalword(uint32_t w) -> void
 	}
 }
 
-static inline
-fn findword(uint32_t word) -> uint32_t
-{
-	for(let i = 0; i < wp; i++)
-		if(words[i].name == word) return words[i].place;
-
-	puts("undefined word"), exit(-5);
-}
-fn evalcol(uint32_t cword) -> void
+fn evalcol (uint32_t cword) -> void
 {
 	let p = findword(cword);
 	while(dict[p] != hash(";")) {
@@ -360,13 +381,13 @@ fn evalcol(uint32_t cword) -> void
 	}
 }
 
-fn eval() -> void
+fn eval (void) -> void
 {
 	bp = buf;
 	while(*bp != 0 && bp < buf + 80) {
-		if(isspace(*bp)) 
+		if(isspace(*bp)) {
 			bp++;
-		else if(isdigit(*bp)) {
+		} else if(isdigit(*bp)) {
 			readnum();
 			if(ifdepth == 0 || ifstate & (1 << (ifdepth - 1)))
 				push(number);
@@ -379,7 +400,7 @@ fn eval() -> void
 
 /*-- main --*/
 
-fn main() -> int
+fn main () -> int
 {
 	loop {
 		/* prompt */
