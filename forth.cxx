@@ -70,7 +70,7 @@ static inline
 fn powten (int n) -> int
 {
 	let x = 1;
-	for(let i = 0; i < n; i++)
+	for(; n; n--)
 		x *= 10;
 	return x;
 }
@@ -118,7 +118,7 @@ fn rot (void) -> void
 {
 	CU(3);
 	let temp = stack[sp];
-	stack[sp] = stack[sp - 1];
+	stack[sp]     = stack[sp - 1];
 	stack[sp - 1] = stack[sp - 2];
 	stack[sp - 2] = temp;
 }
@@ -172,7 +172,7 @@ static inline
 fn greater (void) -> void
 {
 	CU(2);
-	let first = stack[sp - 1];
+	let first  = stack[sp - 1];
 	let second = stack[sp];
 	stack[--sp] = (first > second);
 }
@@ -180,7 +180,7 @@ static inline
 fn less (void) -> void
 {
 	CU(2);
-	let first = stack[sp - 1];
+	let first  = stack[sp - 1];
 	let second = stack[sp];
 	stack[--sp] = (first < second);
 }
@@ -188,7 +188,7 @@ static inline
 fn equal (void) -> void
 {
 	CU(2);
-	let first = stack[sp - 1];
+	let first  = stack[sp - 1];
 	let second = stack[sp];
 	stack[--sp] = (first == second);
 }
@@ -289,9 +289,6 @@ fn evalcol (uint32_t cword) -> void;
 
 fn evalword (uint32_t w) -> void
 {
-	int isnum = 1 & w;
-	// w = w << 1;
-
 	if(ifdepth) {
 		let flagbit = 1ul << (ifdepth - 1);
 		let executable = ifstate & flagbit;
@@ -307,7 +304,7 @@ fn evalword (uint32_t w) -> void
 			ifstate ^= flagbit;
 	}
 
-	if(isnum) {
+	if(1 & w) {
 		push(w >> 1);
 		return;
 	}
