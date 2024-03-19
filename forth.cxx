@@ -13,14 +13,18 @@
 #define fn auto
 #define let auto
 #define then
-#define CA do {if(sp >= 10) then puts("stack overflow"), exit(-1);} while(0) /* check above */
-#define CU(n) do {if(sp < n) then puts("stack underflow"), exit(-2);} while(0) /* check under */
+#define CA do { /* check above */ \
+	if(sp >= 10) then puts("stack overflow"), exit(-1);}\
+	while(0)
+#define CU(n) do { /* check under */ \
+	if(sp < n) then puts("stack underflow"), exit(-2);}\
+	while(0)
 
 /*-------- DATA --------*/
 
 /* most recently read chars */
 static char buf[80];
-static char* bp;
+static char *bp;
 
 /* last parsed word */
 static char word[8];
@@ -51,7 +55,7 @@ static uint32_t dp = 0;
 /*-- auxiliary --*/
 
 static constexpr
-fn hash (const char* str) -> uint32_t
+fn hash (const char *str) -> uint32_t
 { /* murmur */
 	let hash = 3323198485ul;
 	for(; *str; ++str) {
@@ -59,7 +63,7 @@ fn hash (const char* str) -> uint32_t
 		hash *= 0x5bd1e995;
 		hash ^= hash >> 15;
 	}
-	return hash;
+	return hash << 1;
 }
 
 static inline
@@ -92,16 +96,19 @@ fn push (int n) -> void
 static inline
 fn pop (void) -> int
 {
+	CU(1);
 	return stack[sp--];
 }
 static inline
 fn peek (void) -> int
 {
+	CU(1);
 	return stack[sp];
 }
 static inline
 fn swap (void) -> void
 {
+	CU(2);
 	let temp = stack[sp];
 	stack[sp] = stack[sp - 1];
 	stack[sp - 1] = temp;
@@ -109,6 +116,7 @@ fn swap (void) -> void
 static inline
 fn rot (void) -> void
 {
+	CU(3);
 	let temp = stack[sp];
 	stack[sp] = stack[sp - 1];
 	stack[sp - 1] = stack[sp - 2];
@@ -117,6 +125,15 @@ fn rot (void) -> void
 static inline
 fn drop (void) -> void
 {
+	CU(1);
+	sp--;
+}
+
+static inline
+fn nip (void) -> void
+{
+	CU(2);
+	stack[sp - 1] = stack[sp];
 	sp--;
 }
 
@@ -124,24 +141,28 @@ fn drop (void) -> void
 static inline
 fn add (void) -> void
 {
+	CU(2);
 	stack[sp - 1] += stack[sp];
 	sp--;
 }
 static inline
 fn sub (void) -> void
 {
+	CU(2);
 	stack[sp - 1] -= stack[sp];
 	sp--;
 }
 static inline
 fn mul (void) -> void
 {
+	CU(2);
 	stack[sp - 1] *= stack[sp];
 	sp--;
 }
 static inline
 fn div (void) -> void
 {
+	CU(2);
 	stack[sp - 1] /= stack[sp];
 	sp--;
 }
@@ -150,6 +171,7 @@ fn div (void) -> void
 static inline
 fn greater (void) -> void
 {
+	CU(2);
 	let first = stack[sp - 1];
 	let second = stack[sp];
 	stack[--sp] = (first > second);
@@ -157,6 +179,7 @@ fn greater (void) -> void
 static inline
 fn less (void) -> void
 {
+	CU(2);
 	let first = stack[sp - 1];
 	let second = stack[sp];
 	stack[--sp] = (first < second);
@@ -164,6 +187,7 @@ fn less (void) -> void
 static inline
 fn equal (void) -> void
 {
+	CU(2);
 	let first = stack[sp - 1];
 	let second = stack[sp];
 	stack[--sp] = (first == second);
@@ -173,11 +197,8 @@ fn equal (void) -> void
 static inline
 fn ifword (void) -> void
 {
-	if(ifdepth >= 64)
-		puts("if depth reached"), exit(6);
-
-	ifstate ^= (stack[sp--] ? 1 : 0) << ifdepth;
-	ifdepth++;
+	CU(1);
+	ifstate ^= (stack[sp--] ? 1 : 0) << ifdepth++;
 }
 
 /*- colon -*/
@@ -195,17 +216,16 @@ fn colon (void) -> void
 			continue;
 		} else if(isdigit(*bp)) {
 			readnum();
-			dict[dp++] = hash("number");
-			dict[dp++] = number;
+			dict[dp++] = (number << 1) + 1;
 			continue;
 		}
 		readword();
 		dict[dp++] = hash(word);
 		if(word[0] == ';') then break;
 	}
+	if(word[0] != ';')
+		puts("malformed col def"), exit(-7);
 }
-
-/*- graphics -*/
 
 /*- misc -*/
 static inline
@@ -213,11 +233,10 @@ fn list (void) -> void
 {
 	if (sp <= 0) then return;
 
-	printf("<");
 	for(let i = 1; i < sp; i++)
 		printf("%d,", stack[i]);
 
-	printf("%d>\n", stack[sp]);
+	printf("%d.\n", stack[sp]);
 }
 
 static inline
@@ -270,8 +289,11 @@ fn evalcol (uint32_t cword) -> void;
 
 fn evalword (uint32_t w) -> void
 {
+	int isnum = 1 & w;
+	// w = w << 1;
+
 	if(ifdepth) {
-		let flagbit = 1 << (ifdepth - 1);
+		let flagbit = 1ul << (ifdepth - 1);
 		let executable = ifstate & flagbit;
 
 		if(w == hash("then")) {
@@ -285,54 +307,49 @@ fn evalword (uint32_t w) -> void
 			ifstate ^= flagbit;
 	}
 
-	switch(w)
-	{
+	if(isnum) {
+		push(w >> 1);
+		return;
+	}
+
+	switch(w) {
 	case(hash("dup")):
-		CU(1);
 		push(peek());
 		break;
 	case(hash("swap")):
-		CU(2);
 		swap();
 		break;
 	case(hash("rot")):
-		CU(3);
 		rot();
 		break;
 	case(hash("drop")):
-		CU(1);
 		drop();
 		break;
+	case(hash("nip")):
+		nip();
+		break;
 	case(hash(".")):
-		CU(1);
 		printf("%d\n", pop());
 		break;
 	case(hash("+")):
-		CU(2);
 		add();
 		break;
 	case(hash("-")):
-		CU(2);
 		sub();
 		break;
 	case(hash("*")):
-		CU(2);
 		mul();
 		break;
 	case(hash("/")):
-		CU(2);
 		div();
 		break;
 	case(hash(">")):
-		CU(2);
 		greater();
 		break;
 	case(hash("<")):
-		CU(2);
 		less();
 		break;
 	case(hash("=")):
-		CU(2);
 		equal();
 		break;
 	case(hash(":")):
@@ -341,7 +358,6 @@ fn evalword (uint32_t w) -> void
 	case(hash(";")):
 		break;
 	case(hash("if")):
-		CU(1);
 		ifword();
 		break;
 	case(hash("else")):
@@ -357,8 +373,6 @@ fn evalword (uint32_t w) -> void
 	case(hash(".s")):
 		list();
 		break;
-	case(hash("window")):
-		break;
 	case(hash("exit")):
 		exit(0);
 		break;
@@ -372,11 +386,6 @@ fn evalcol (uint32_t cword) -> void
 {
 	let p = findword(cword);
 	while(dict[p] != hash(";")) {
-		if(dict[p] == hash("number")) {
-			p++;
-			push(dict[p++]);
-			continue;
-		}
 		evalword(dict[p++]);
 	}
 }
