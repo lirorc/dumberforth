@@ -4,21 +4,29 @@
 #include <string.h>
 #include <stdint.h>
 #include <stdlib.h>
-#include <ctype.h>
+#include <assert.h>
 #include <stdio.h>
+#include <ctype.h>
 
 /*-------- MACROS --------*/
+#define SAFE
 
 #define loop for(;;)
 #define fn auto
 #define let auto
 #define then
+
+#ifdef SAFE
 #define CA do { /* check above */ \
 	if(sp >= 10) then puts("stack overflow"), exit(-1);}\
 	while(0)
 #define CU(n) do { /* check under */ \
 	if(sp < n) then puts("stack underflow"), exit(-2);}\
 	while(0)
+#else
+#define CA
+#define CU(n)
+#endif
 
 /*-------- DATA --------*/
 
@@ -67,7 +75,7 @@ fn hash (const char *str) -> uint32_t
 }
 
 static inline
-fn powten (int n) -> int
+fn powten (unsigned n) -> int
 {
 	let x = 1;
 	for(; n; n--)
@@ -110,7 +118,8 @@ fn swap (void) -> void
 {
 	CU(2);
 	let temp = stack[sp];
-	stack[sp] = stack[sp - 1];
+
+	stack[sp]     = stack[sp - 1];
 	stack[sp - 1] = temp;
 }
 static inline
@@ -118,6 +127,7 @@ fn rot (void) -> void
 {
 	CU(3);
 	let temp = stack[sp];
+
 	stack[sp]     = stack[sp - 1];
 	stack[sp - 1] = stack[sp - 2];
 	stack[sp - 2] = temp;
@@ -192,13 +202,18 @@ fn equal (void) -> void
 	let second = stack[sp];
 	stack[--sp] = (first == second);
 }
+static inline
+fn iszero (void) -> void
+{
+	CU(1);
+	stack[sp] = (stack[sp] == 0);
+}
 
 /*- conditionals -*/
 static inline
 fn ifword (void) -> void
 {
-	CU(1);
-	ifstate ^= (stack[sp--] ? 1 : 0) << ifdepth++;
+	ifstate ^= ( pop() ? 1 : 0 ) << ifdepth++;
 }
 
 /*- colon -*/
@@ -207,10 +222,18 @@ fn readnum  (void) -> void;
 
 fn colon (void) -> void
 {
+#ifdef SAFE
+	assert(wp < 100);
+#endif
+
 	readword();
 	words[wp++] = { hash(word), dp };
 
 	while(bp < buf + 80) {
+#ifdef SAFE
+		assert(dp < 400);
+#endif
+
 		if(isspace(*bp)) {
 			bp++;
 			continue;
@@ -312,70 +335,73 @@ fn evalword (uint32_t w) -> void
 	switch(w) {
 	case(hash("dup")):
 		push(peek());
-		break;
+		return;
 	case(hash("swap")):
 		swap();
-		break;
+		return;
 	case(hash("rot")):
 		rot();
-		break;
+		return;
 	case(hash("drop")):
 		drop();
-		break;
+		return;
 	case(hash("nip")):
 		nip();
-		break;
+		return;
 	case(hash(".")):
 		printf("%d\n", pop());
-		break;
+		return;
 	case(hash("+")):
 		add();
-		break;
+		return;
 	case(hash("-")):
 		sub();
-		break;
+		return;
 	case(hash("*")):
 		mul();
-		break;
+		return;
 	case(hash("/")):
 		div();
-		break;
+		return;
 	case(hash(">")):
 		greater();
-		break;
+		return;
 	case(hash("<")):
 		less();
-		break;
+		return;
 	case(hash("=")):
 		equal();
-		break;
+		return;
+	case(hash("0=")):
+		iszero();
+		return;
 	case(hash(":")):
 		colon();
-		break;
+		return;
 	case(hash(";")):
-		break;
+		return;
 	case(hash("if")):
 		ifword();
-		break;
+		return;
 	case(hash("else")):
-		break;
+		return;
 	case(hash("then")):
-		break;
+		return;
 	case(hash("'")):
 		quote();
-		break;
+		return;
 	case(hash("eval")):
 		unquote();
-		break;
+		return;
 	case(hash(".s")):
 		list();
-		break;
+		return;
 	case(hash("exit")):
 		exit(0);
-		break;
+		return;
 	default:
 		evalcol(w);
-		break;
+		return;
 	}
 }
 
@@ -390,7 +416,7 @@ fn evalcol (uint32_t cword) -> void
 fn eval (void) -> void
 {
 	bp = buf;
-	while(*bp != 0 && bp < buf + 80) {
+	while(*bp != 0) {
 		if(isspace(*bp)) {
 			bp++;
 		} else if(isdigit(*bp)) {
