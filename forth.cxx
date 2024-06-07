@@ -9,24 +9,18 @@
 #include <ctype.h>
 
 /*-------- MACROS --------*/
-#define SAFE
 
 #define loop for(;;)
 #define fn auto
 #define let auto
 #define then
 
-#ifdef SAFE
 #define CA do { /* check above */ \
 	if(sp >= 10) then puts("stack overflow"), exit(-1);}\
 	while(0)
 #define CU(n) do { /* check under */ \
 	if(sp < n) then puts("stack underflow"), exit(-2);}\
 	while(0)
-#else
-#define CA
-#define CU(n)
-#endif
 
 /*-------- DATA --------*/
 
@@ -138,7 +132,6 @@ fn drop (void) -> void
 	CU(1);
 	sp--;
 }
-
 static inline
 fn nip (void) -> void
 {
@@ -222,17 +215,13 @@ fn readnum  (void) -> void;
 
 fn colon (void) -> void
 {
-#ifdef SAFE
 	assert(wp < 100);
-#endif
 
 	readword();
 	words[wp++] = { hash(word), dp };
 
 	while(bp < buf + 80) {
-#ifdef SAFE
 		assert(dp < 400);
-#endif
 
 		if(isspace(*bp)) {
 			bp++;
@@ -408,9 +397,11 @@ fn evalword (uint32_t w) -> void
 fn evalcol (uint32_t cword) -> void
 {
 	let p = findword(cword);
-	while(dict[p] != hash(";")) {
+
+	while(dict[p+1] != hash(";")) {
 		evalword(dict[p++]);
 	}
+	return evalword(dict[p]);
 }
 
 fn eval (void) -> void
@@ -447,4 +438,3 @@ fn main () -> int
 	}
 	return 0;
 }
-
